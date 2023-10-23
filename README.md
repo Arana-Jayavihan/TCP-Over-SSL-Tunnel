@@ -1,5 +1,5 @@
 # TCP-Over-SSL-Tunnel
-TLS wrapper for TCP packets allowing SNI injection trhough SSH Proxy.
+TLS wrapper for TCP packets allowing SNI injection through SSH Proxy.
 
 # Installation and Usage
 1. Execute "pip install certifi".
