@@ -18,16 +18,16 @@ def tunnel(conn, addr):
     ssl_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ssl_sock.connect((host, int(port)))
     
-    SNI_HOST = config['SNI']
     context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     ssl_sock = context.wrap_socket(ssl_sock, server_hostname=str(config['SNI']))
     context.verify_mode = ssl.CERT_REQUIRED
-    context.load_verify_locations(cafile=path.relpath(certifi.where()),capath=None, cadata=None)
-    print('[+] SNI injectection success -', config["SNI"])
+    context.load_verify_locations(cafile=path.relpath(certifi.where()), capath=None, cadata=None)
 
     try:
+        print("[+] SNI injectection success -", config["SNI"])
         print("[+] Ciphers :", ssl_sock.cipher()[0])
-    except:
+    except Exception as error:
+        print(error)
         pass
 
     conn.send(b"HTTP/1.1 200 Connection Established\r\n\r\n")
@@ -52,6 +52,7 @@ def tunnel(conn, addr):
             except KeyboardInterrupt:
                 connected = False
                 break
+            
     conn.close()
     ssl_sock.close()
     print("[+] Tunnel Disconnected")
@@ -59,13 +60,9 @@ def tunnel(conn, addr):
 def connect():
     try:
         listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    except Exception as error:
-        print("[+] Error: ", error)
-        exit(0)
-    try:
         listen_socket.bind((config['LISTEN_ADDR'], int(config['LISTEN_PORT'])))
         listen_socket.listen(0)
-
+        
     except Exception as error:
         print("[+] Error: ", error)
         listen_socket.close()
