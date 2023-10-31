@@ -1,13 +1,12 @@
 import ssl
-import json
-import certifi
-import select
 import socket
-import subprocess
 from os import path
+from json import load
+from select import select
+from certifi import where
+from subprocess import Popen
 from threading import Thread
-
-config = json.load(open("config.json", "r"))
+from argparse import ArgumentParser
 
 def tunnel(conn, addr):
     decoded = conn.recv(8192).decode("utf-8")
@@ -21,13 +20,13 @@ def tunnel(conn, addr):
     context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     ssl_sock = context.wrap_socket(ssl_sock, server_hostname=str(config['SNI']))
     context.verify_mode = ssl.CERT_REQUIRED
-    context.load_verify_locations(cafile=path.relpath(certifi.where()), capath=None, cadata=None)
+    context.load_verify_locations(cafile=path.relpath(where()), capath=None, cadata=None)
 
     try:
         print("[+] SNI injectection success -", config["SNI"])
         print("[+] Ciphers :", ssl_sock.cipher()[0])
     except Exception as error:
-        print(error)
+        print("[+] Error:", error)
         pass
 
     conn.send(b"HTTP/1.1 200 Connection Established\r\n\r\n")
@@ -35,7 +34,7 @@ def tunnel(conn, addr):
     connected = True
     print("[+] Tunnel Connected")
     while connected == True:
-        r, w, x = select.select([conn, ssl_sock], [], [conn, ssl_sock], 3)
+        r, w, x = select([conn, ssl_sock], [], [conn, ssl_sock], 3)
         if x: 
             connected = False
             break
@@ -64,7 +63,7 @@ def connect():
         listen_socket.listen(0)
         
     except Exception as error:
-        print("[+] Error: ", error)
+        print("[+] Error:", error)
         listen_socket.close()
         exit(0)
     
@@ -84,11 +83,16 @@ def start():
     try:
         Thread(target=connect).start()
         command = f"ssh -o 'ProxyCommand=nc -X CONNECT -x {config['LISTEN_ADDR']}:{config['LISTEN_PORT']} %h %p' -p {config['SSH_SERVER_PORT']} {config['SSH_USER']}@{config['SSH_SERVER']} -C -N -D {config['PROXY_PORT']}"
-        subprocess.Popen(command, shell=True)
+        Popen(command, shell=True)
     
     except Exception as error:
-        print(error)
+        print("[+] Error:", error)
         exit(0)
+
+parser = ArgumentParser()
+parser.add_argument('-c', '--config', type=str, required=True, help="Config File")
+args = parser.parse_args()
+config = load(open(args.config, "r"))
 
 start()
 
