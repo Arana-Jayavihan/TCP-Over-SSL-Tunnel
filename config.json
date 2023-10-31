@@ -3,8 +3,8 @@
     "LISTEN_ADDR": "127.0.0.1",
     "LISTEN_PORT": 9090,
     "PROXY_PORT": 1080,
-    "SSH_SERVER": "a.sg.serverfast.pw",
+    "SSH_SERVER": "",
     "SSH_SERVER_PORT": 443,
-    "SSH_USER": "lionssh_luciferNix",
-    "SSH_PASS": "luci123"
+    "SSH_USER": "",
+    "SSH_PASS": ""
 }
