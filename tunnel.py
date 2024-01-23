@@ -39,10 +39,10 @@ def tunnel(conn, addr):
 
     print("\n#########################################################")
     print("#\t\t\t\t\t\t\t#")
-    print(f"#\tSOCKS5 Proxy\t-\t127.0.0.1:{config['PROXY_PORT']}\t#")
+    print(f"#\tSOCKS5 Proxy\t-\t127.0.0.1:{config['PROXY_PORT']}\t\t#")
     
     if args.port:
-        print(f"#\tHTTP Proxy\t-\t0.0.0.0:{args.port}\t#")
+        print(f"#\tHTTP Proxy\t-\t0.0.0.0:{args.port}\t\t#")
 
     print("#\t\t\t\t\t\t\t#")
     print("#########################################################\n")
