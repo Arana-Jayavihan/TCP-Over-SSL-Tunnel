@@ -1,5 +1,6 @@
 import ssl
 import socket
+from time import sleep
 from os import path
 from json import load
 from select import select
@@ -7,12 +8,14 @@ from certifi import where
 from subprocess import Popen
 from threading import Thread
 from argparse import ArgumentParser
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
 def tunnel(conn, addr):
     decoded = conn.recv(8192).decode("utf-8")
     host = decoded.splitlines(False)[0].split(":")[0].split()[1]
     port = int(decoded.splitlines(False)[0].split(":")[1].split()[0])
-    print("[+] Connecting to " + host + ":" + str(port))
+    print(f"[+] Connecting to - {host}:{str(port)}")
 
     ssl_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ssl_sock.connect((host, int(port)))
@@ -23,16 +26,27 @@ def tunnel(conn, addr):
     context.load_verify_locations(cafile=path.relpath(where()), capath=None, cadata=None)
 
     try:
-        print("[+] SNI injectection success -", config["SNI"])
-        print("[+] Ciphers :", ssl_sock.cipher()[0])
+        print(f"[+] SNI injectection success - {config['SNI']}")
+        print(f"[+] Ciphers - {ssl_sock.cipher()[0]}")
     except Exception as error:
-        print("[+] Error:", error)
+        print("[+] Error -", error)
         pass
 
     conn.send(b"HTTP/1.1 200 Connection Established\r\n\r\n")
 
     connected = True
     print("[+] Tunnel Connected")
+
+    print("\n#########################################################")
+    print("#\t\t\t\t\t\t\t#")
+    print(f"#\tSOCKS5 Proxy Serving On\t-\t127.0.0.1:{config['PROXY_PORT']}\t#")
+    
+    if args.port:
+        print(f"#\tHTTP Proxy Serving On\t-\t0.0.0.0:{args.port}\t#")
+
+    print("#\t\t\t\t\t\t\t#")
+    print("#########################################################\n")
+
     while connected == True:
         r, w, x = select([conn, ssl_sock], [], [conn, ssl_sock], 3)
         if x: 
@@ -54,43 +68,55 @@ def tunnel(conn, addr):
             
     conn.close()
     ssl_sock.close()
+    global listen_socket
+    listen_socket.close()
+    sleep(5)
     print("[+] Tunnel Disconnected")
+    print("[+] Reconnecting...\n")
+    start()
 
 def connect():
     try:
+        global listen_socket
         listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listen_socket.bind((config['LISTEN_ADDR'], int(config['LISTEN_PORT'])))
         listen_socket.listen(0)
         
-    except Exception as error:
-        print("[+] Error:", error)
-        listen_socket.close()
-        exit(0)
-    
-    print("[+] Awaiting connections to " + config['LISTEN_ADDR'] + ":" + str(config['LISTEN_PORT']))
+        print(f"[+] Awaiting connections - {config['LISTEN_ADDR']}:{str(config['LISTEN_PORT'])}")
+        while True:
+            try:
+                conn, addr = listen_socket.accept()
+                Thread(target=tunnel, args=(conn, addr)).start()
 
-    while True:
-        try:
-            conn, addr = listen_socket.accept()
-            Thread(target=tunnel, args=(conn, addr)).start()
-        except KeyboardInterrupt:
-            print("\n[+] Exiting...")
-            break
-    
-    exit(0)
+            except Exception as error:
+                print("[+] Error -", error)
+                break
+
+    except Exception as error:
+        print("[+] Error - ", error)
+        listen_socket.close()
 
 def start():
     try:
+        command = f"sshpass -p {config['SSH_PASS']} ssh -o 'ProxyCommand=nc -X CONNECT -x {config['LISTEN_ADDR']}:{config['LISTEN_PORT']} %h %p' -p {config['SSH_SERVER_PORT']} {config['SSH_USER']}@{config['SSH_SERVER']} -C -N -D {config['PROXY_PORT']}"
+        command2 = f"pproxy -l http://0.0.0.0:{str(args.port)} -r socks5://127.0.0.1:{config['PROXY_PORT']} > /dev/null"
         Thread(target=connect).start()
-        command = f"ssh -o 'ProxyCommand=nc -X CONNECT -x {config['LISTEN_ADDR']}:{config['LISTEN_PORT']} %h %p' -p {config['SSH_SERVER_PORT']} {config['SSH_USER']}@{config['SSH_SERVER']} -C -N -D {config['PROXY_PORT']}"
         Popen(command, shell=True)
+        if args.port:
+            Popen(command2, shell=True)
+    
+    except KeyboardInterrupt:
+        print("\n[+] Exiting...")
+        exit(0)
     
     except Exception as error:
         print("[+] Error:", error)
-        exit(0)
+        exit(1)
 
+listen_socket = ""
 parser = ArgumentParser()
 parser.add_argument('-c', '--config', type=str, required=True, help="Config File")
+parser.add_argument('-p', '--port', type=str, help="HTTP Proxy Port")
 args = parser.parse_args()
 config = load(open(args.config, "r"))
 
