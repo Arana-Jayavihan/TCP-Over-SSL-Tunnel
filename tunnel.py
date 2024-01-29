@@ -1,7 +1,8 @@
 import ssl
 import socket
+import signal
 from time import sleep
-from os import path
+from os import path, setsid, killpg, getpgid
 from json import load
 from select import select
 from certifi import where
@@ -70,9 +71,10 @@ def tunnel(conn, addr):
     ssl_sock.close()
     global listen_socket
     listen_socket.close()
-    sleep(5)
+    
     print("[+] Tunnel Disconnected")
-    print("[+] Reconnecting...\n")
+    print("[+] Reconnecting in 60 seconds...\n")
+    sleep(60)
     start()
 
 def connect():
@@ -101,16 +103,18 @@ def start():
         command = f"sshpass -p {config['SSH_PASS']} ssh -o 'ProxyCommand=nc -X CONNECT -x {config['LISTEN_ADDR']}:{config['LISTEN_PORT']} %h %p' -p {config['SSH_SERVER_PORT']} {config['SSH_USER']}@{config['SSH_SERVER']} -C -N -D {config['PROXY_PORT']}"
         command2 = f"pproxy -l http://0.0.0.0:{str(args.port)} -r socks5://127.0.0.1:{config['PROXY_PORT']} > /dev/null"
         Thread(target=connect).start()
-        Popen(command, shell=True)
+        ssh = Popen(command, shell=True)
         if args.port:
-            Popen(command2, shell=True)
+            httpProxy = Popen(command2, shell=True, preexec_fn=setsid)
     
     except KeyboardInterrupt:
         print("\n[+] Exiting...")
+        killpg(getpgid(httpProxy.pid), signal.SIGTERM)
         exit(0)
     
     except Exception as error:
         print("[+] Error:", error)
+        killpg(getpgid(httpProxy.pid), signal.SIGTERM)
         exit(1)
 
 listen_socket = ""
@@ -122,3 +126,4 @@ config = load(open(args.config, "r"))
 
 start()
 
+#socat TCP-LISTEN:9000,fork,bind=0.0.0.0 TCP:localhost:1080
