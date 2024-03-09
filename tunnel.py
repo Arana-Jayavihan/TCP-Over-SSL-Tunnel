@@ -13,7 +13,7 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
 def tunnel(conn, addr):
-    decoded = conn.recv(8192).decode("utf-8")
+    decoded = conn.recv(9124).decode("utf-8")
     host = decoded.splitlines(False)[0].split(":")[0].split()[1]
     port = int(decoded.splitlines(False)[0].split(":")[1].split()[0])
     print(f"[+] Connecting to - {host}:{str(port)}")
@@ -55,7 +55,7 @@ def tunnel(conn, addr):
             break
         for i in r:
             try:
-                data = i.recv(8192)
+                data = i.recv(16384)
                 if not data: 
                     connected = False
                     break
@@ -103,6 +103,7 @@ def start():
         command = f"sshpass -p {config['SSH_PASS']} ssh -o 'ProxyCommand=nc -X CONNECT -x {config['LISTEN_ADDR']}:{config['LISTEN_PORT']} %h %p' -p {config['SSH_SERVER_PORT']} {config['SSH_USER']}@{config['SSH_SERVER']} -C -N -D {config['PROXY_PORT']}"
         command2 = f"pproxy -l http://0.0.0.0:{str(args.port)} -r socks5://127.0.0.1:{config['PROXY_PORT']} > /dev/null"
         Thread(target=connect).start()
+        sleep(5)
         ssh = Popen(command, shell=True)
         if args.port:
             httpProxy = Popen(command2, shell=True, preexec_fn=setsid)
