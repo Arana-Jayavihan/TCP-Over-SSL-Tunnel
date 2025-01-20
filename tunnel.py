@@ -1,4 +1,4 @@
-import time, select, threading, time, select, configparser, ssl, os, certifi, socket, warnings, subprocess
+import select, threading, time, select, configparser, ssl, os, certifi, socket, warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 class Tunnel():
@@ -19,6 +19,7 @@ class Tunnel():
             for i in r:
                 try:
                     data = i.recv(16384)
+                    #print(data)
                     if not data:
                         connected = False
                     if i is stunnel_socket:
@@ -62,6 +63,7 @@ class Tunnel():
             af, socktype, proto, canonname, sa = res
             try:
                 listen_socket = socket.socket(af, socktype, proto)
+                listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             except OSError as e:
                 print(f"[Error] {e}")
                 exit(1)
@@ -72,17 +74,16 @@ class Tunnel():
                 print(f"[Error] {e}")
                 listen_socket.close()
                 exit(1)
-                
-            print(f'Waiting for incoming connection to : {self.local_ip}:{self.listen_port}\n')
+
+            print(f'[*] Waiting for incoming connection to : {self.local_ip}:{self.listen_port}')
             while 1==1:
                 try:
                     client, address = listen_socket.accept()
                     thread = threading.Thread(target=self.destination, args=(client, address)).start()
                 except KeyboardInterrupt:
-                    print("\n[*] Exiting...")  
+                    print("\n[*] Exiting...")
                     break
 
 if __name__ == '__main__':
     start = Tunnel()
     start.create_connection()
-
