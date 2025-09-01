@@ -84,7 +84,6 @@ def handle_socks(client, transport, stop_event, bufsize=65536):
         relay(client, chan, stop_event, bufsize)
 
     except Exception as e:
-        print(f"[+] SOCKS handler error: {e}")
         try:
             client.close()
         except:
