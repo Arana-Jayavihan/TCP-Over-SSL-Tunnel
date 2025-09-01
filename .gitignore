@@ -2,3 +2,4 @@
 start.sh
 settings.ini
 shell.nix
+__pycache__
