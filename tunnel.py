@@ -40,7 +40,6 @@ class Tunnel:
         client.close()
         stunnel_socket.close()
         print("[+] Client disconnected!")
-        self.restart_event.set()
 
     def destination(self, client, address):
         if self.stop_event.is_set():
