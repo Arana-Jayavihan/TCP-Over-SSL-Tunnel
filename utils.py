@@ -95,8 +95,7 @@ def start_socks_server(local_ip, local_port, transport, stop_event, bufsize=6553
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((local_ip, int(local_port)))
     sock.listen(100)
-    print(f"[+] SOCKS5 proxy listening on {local_ip}:{local_port}")
-
+    print(f"[+] SOCKS5 Proxy listening on {local_ip}:{local_port}")
     try:
         while not stop_event.is_set():
             sock.settimeout(1)

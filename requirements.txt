@@ -2,3 +2,5 @@ configparser
 certifi
 pproxy
 paramiko
+pillow
+pystray

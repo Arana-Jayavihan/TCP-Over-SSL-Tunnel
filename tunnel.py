@@ -2,8 +2,7 @@ import socket
 from os import path
 from select import select
 from certifi import where
-from threading import Event, Thread
-from configparser import ConfigParser
+from threading import Thread
 from ssl import SSLContext, PROTOCOL_TLS, CERT_REQUIRED
 
 class Tunnel:
