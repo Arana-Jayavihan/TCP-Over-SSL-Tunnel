@@ -3,8 +3,11 @@ import struct
 from time import sleep
 from select import select
 from threading import Thread, Event
-from subprocess import Popen, DEVNULL
+from subprocess import Popen, DEVNULL, STARTUPINFO, STARTF_USESHOWWINDOW
 from paramiko import SSHClient, AutoAddPolicy
+
+si = STARTUPINFO()
+si.dwFlags |= STARTF_USESHOWWINDOW
 
 def httpProxy(config):
     print("[+] Extending to HTTP Proxy")
@@ -18,7 +21,7 @@ def httpProxy(config):
         "-r",
         f"socks5://{config['settings']['local_ip']}:{config['settings']['socks_port']}"
     ]
-    proc = Popen(cmd, stdout=DEVNULL, stderr=DEVNULL)
+    proc = Popen(cmd, startupinfo=si, stdout=DEVNULL, stderr=DEVNULL)
     return proc
 
 def tune_socket(sock, bufsize=4 << 20):

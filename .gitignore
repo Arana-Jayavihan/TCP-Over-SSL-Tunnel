@@ -4,3 +4,6 @@ settings.ini
 shell.nix
 __pycache__
 tunnel.bat
+build
+dist
+*.spec
