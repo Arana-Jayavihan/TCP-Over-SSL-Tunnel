@@ -1,16 +1,17 @@
 import sys
 import socket
 import struct
-from os import path
-import tkinter as tk
 from time import sleep
+from os import path, name
 from select import select
 from threading import Thread, Event
 from paramiko import SSHClient, AutoAddPolicy
-from subprocess import Popen, DEVNULL, STARTUPINFO, STARTF_USESHOWWINDOW
+from subprocess import Popen, DEVNULL
 
-si = STARTUPINFO()
-si.dwFlags |= STARTF_USESHOWWINDOW
+if name == 'nt':
+    from subprocess import STARTUPINFO, STARTF_USESHOWWINDOW
+    si = STARTUPINFO()
+    si.dwFlags |= STARTF_USESHOWWINDOW
 
 def resource_path(relative_path):
     try:
@@ -31,7 +32,10 @@ def httpProxy(config):
         "-r",
         f"socks5://{config['settings']['local_ip']}:{config['settings']['socks_port']}"
     ]
-    proc = Popen(cmd, startupinfo=si, stdout=DEVNULL, stderr=DEVNULL)
+    if name == 'nt':
+        proc = Popen(cmd, startupinfo=si, stdout=DEVNULL, stderr=DEVNULL)
+    else:
+        proc = Popen(cmd, stdout=DEVNULL, stderr=DEVNULL)
     return proc
 
 def tune_socket(sock, bufsize=4 << 20):
