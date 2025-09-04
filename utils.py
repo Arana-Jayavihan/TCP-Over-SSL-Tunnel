@@ -1,13 +1,23 @@
+import sys
 import socket
 import struct
+from os import path
+import tkinter as tk
 from time import sleep
 from select import select
 from threading import Thread, Event
-from subprocess import Popen, DEVNULL, STARTUPINFO, STARTF_USESHOWWINDOW
 from paramiko import SSHClient, AutoAddPolicy
+from subprocess import Popen, DEVNULL, STARTUPINFO, STARTF_USESHOWWINDOW
 
 si = STARTUPINFO()
 si.dwFlags |= STARTF_USESHOWWINDOW
+
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = path.abspath(".")
+    return path.join(base_path, relative_path)
 
 def httpProxy(config):
     print("[+] Extending to HTTP Proxy")
@@ -214,7 +224,3 @@ def keep_ssh_alive(config, stop_event):
         socks_stop.set()
     if ssh_client:
         ssh_client.close()
-
-
-
-

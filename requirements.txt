@@ -4,3 +4,4 @@ pproxy
 paramiko
 pillow
 pystray
+tkinter
