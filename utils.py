@@ -2,8 +2,8 @@ import sys
 import socket
 import struct
 from time import sleep
-from os import path, name
 from select import select
+from os import path, name
 from threading import Thread, Event
 from paramiko import SSHClient, AutoAddPolicy
 from subprocess import Popen, DEVNULL

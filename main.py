@@ -54,14 +54,17 @@ def stop():
     if sshProc and sshProc.is_alive():
         sshProc.join(timeout=5)
     if httpProxyProc:
-        httpProxyProc.kill()
-        httpProxyProc.wait()
+        httpProxyProc.send_signal(SIGTERM)
+        httpProxyProc.wait(timeout=5)
     if tunnel:
         tunnel.stop()
 
 def cleanup(icon=None):
     global sshProc, httpProxyProc, tunnel, stop_event, window, connection, mainThread
     stop_event.set()
+    if httpProxyProc:
+        httpProxyProc.send_signal(SIGTERM)
+        httpProxyProc.wait(timeout=5)
     if window:
         sys.stdout = sys.__stdout__
         window.after(0, window.destroy)
@@ -71,9 +74,6 @@ def cleanup(icon=None):
         connection.join(timeout=5)
     if sshProc and sshProc.is_alive():
         sshProc.join(timeout=5)
-    if httpProxyProc:
-        httpProxyProc.kill()
-        httpProxyProc.wait()
     if tunnel:
         tunnel.stop()
     if icon:
