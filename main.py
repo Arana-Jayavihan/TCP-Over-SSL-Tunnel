@@ -24,7 +24,8 @@ sshProc = None
 httpProxyProc = None
 tunnel = None
 running = False
-startThread = None
+connection = None
+mainThread = None
 
 icon_path = resource_path("icon.png")
 image = Image.open(icon_path)
@@ -43,12 +44,33 @@ def minimize_to_tray():
     window.withdraw()
     isWindowShown = False
 
+def stop():
+    global sshProc, httpProxyProc, tunnel, stop_event, window, connection, mainThread
+    stop_event.set()
+    if mainThread and mainThread.is_alive():
+        mainThread.join(timeout=5)
+    if connection and connection.is_alive():
+        connection.join(timeout=5)
+    if sshProc and sshProc.is_alive():
+        sshProc.join(timeout=5)
+    if httpProxyProc:
+        httpProxyProc.kill()
+        httpProxyProc.wait()
+    if tunnel:
+        tunnel.stop()
+
 def cleanup(icon=None):
-    global sshProc, httpProxyProc, tunnel, stop_event, window
+    global sshProc, httpProxyProc, tunnel, stop_event, window, connection, mainThread
     stop_event.set()
     if window:
         sys.stdout = sys.__stdout__
         window.after(0, window.destroy)
+    if mainThread and mainThread.is_alive():
+        mainThread.join(timeout=5)
+    if connection and connection.is_alive():
+        connection.join(timeout=5)
+    if sshProc and sshProc.is_alive():
+        sshProc.join(timeout=5)
     if httpProxyProc:
         httpProxyProc.kill()
         httpProxyProc.wait()
@@ -59,20 +81,9 @@ def cleanup(icon=None):
     print("[+] Cleanup complete. Exiting.")
     sys.exit(0)
 
-def restart():
-    global startThread, httpProxyProc, tunnel, stop_event, running
-    stop_event.set()
-    if httpProxyProc:
-        httpProxyProc.kill()
-        httpProxyProc.wait()
-        httpProxyProc = None
-    if tunnel:
-        tunnel.stop()
-        tunnel = None   
-    running = False
 
 def start():
-    global sshProc, httpProxyProc, tunnel, running
+    global sshProc, httpProxyProc, tunnel, running, stop_event, connection
     try:
         running = True
         stop_event.clear()
@@ -92,22 +103,17 @@ def start():
     except KeyboardInterrupt:
         cleanup()
 
-    finally:
-        print("[*] Start thread exiting")
-        running = False
-
 def run():
-    global running, startThread
+    global running, mainThread
     if not running:
+        print("[+] Starting Tunnel...")
         start_button.config(text="Stop")
-        startThread = Thread(target=start, daemon=True)
-        startThread.start()
+        mainThread = Thread(target=start, daemon=True)
+        mainThread.start()
     else:
-        restart()
+        running = False
         start_button.config(text="Start")
-        startThread = Thread(target=start, daemon=True)
-        startThread.start()
-        #cleanup()
+        stop()
 
 try:
     config = ConfigParser()
@@ -138,7 +144,7 @@ try:
         ))
     Thread(target=icon.run, daemon=True).start()
 
-    if not running:
+    if not running and config['settings']['auto_start'] == "true":
         run()
 
     signal(SIGINT, cleanup)
