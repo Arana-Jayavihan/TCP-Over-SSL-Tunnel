@@ -1,52 +1,114 @@
-from sys import exit
-from time import sleep
+#!/usr/bin/env python3
+"""TCP Over SSL Tunnel - Main entry point."""
+
+import asyncio
+import signal
+import sys
+from typing import Optional
+
+from config import Config, ConfigurationError, load_config, parse_args
+from logger import get_logger, setup_logger
 from tunnel import Tunnel
-from  warnings import filterwarnings
-from threading import Event, Thread
-from configparser import ConfigParser
-from signal import signal, SIGTERM, SIGINT
-from utils import keep_ssh_alive, httpProxy
+from utils import http_proxy_process, keep_ssh_alive
 
-filterwarnings("ignore", category=DeprecationWarning)
+logger = get_logger()
 
-config = ConfigParser()
-config.read_file(open('settings.ini'))
-stop_event = Event()
 
-if __name__ == '__main__':
-    sshProc = None
-    httpProxyProc = None
-    tunnel = None
+async def main() -> int:
+    """
+    Main async entry point.
 
-    def cleanup(*args):
-        print("\n[+] Exiting, cleaning up...")
+    Returns:
+        Exit code (0 for success, 1 for error)
+    """
+    args = parse_args()
+
+    setup_logger(
+        verbose=args.verbose,
+        quiet=args.quiet,
+    )
+
+    try:
+        config = load_config(args.config)
+    except ConfigurationError as e:
+        logger.error(f"Configuration error: {e}")
+        return 1
+
+    if config.logging.file:
+        setup_logger(
+            verbose=args.verbose,
+            quiet=args.quiet,
+            log_file=config.logging.file,
+        )
+
+    logger.info("TCP Over SSL Tunnel starting...")
+    logger.info(f"Config loaded from: {args.config}")
+
+    stop_event = asyncio.Event()
+    connection_semaphore = asyncio.Semaphore(config.settings.max_connections)
+
+    http_proxy_proc = None
+
+    def signal_handler(sig: signal.Signals) -> None:
+        logger.info(f"Received signal {sig.name}, shutting down...")
         stop_event.set()
-        if tunnel:
-            tunnel.stop()
-        if httpProxyProc:
-            httpProxyProc.kill()
-            httpProxyProc.wait()
-        print("[+] Cleanup complete. Exiting.")
-        exit(0)
-    
-    signal(SIGINT, cleanup)
-    signal(SIGTERM, cleanup)
 
-    while not stop_event.is_set():
-        try:
-            sshProc = Thread(target=keep_ssh_alive, args=(config, stop_event), daemon=True)
-            sshProc.start()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, signal_handler, sig)
 
-            tunnel = Tunnel(config=config, stopEvent=stop_event)
-            connection = Thread(target=tunnel.create_connection, daemon=True)
-            connection.start()
+    try:
+        tunnel = Tunnel(config, stop_event, connection_semaphore)
 
-            if config["http_proxy"]["enable"] == "true":
-                httpProxyProc = httpProxy(config)
+        tunnel_task = asyncio.create_task(
+            tunnel.start(),
+            name="tunnel",
+        )
 
-            while not stop_event.is_set():
-                sleep(2)
+        # Wait for tunnel to be ready before starting SSH
+        await tunnel.ready_event.wait()
+        logger.info("Tunnel ready, starting SSH keepalive...")
 
-        except KeyboardInterrupt:
-            cleanup()
+        ssh_task = asyncio.create_task(
+            keep_ssh_alive(config, stop_event, connection_semaphore),
+            name="ssh_keepalive",
+        )
 
+        if config.http_proxy.enable:
+            http_proxy_proc = http_proxy_process(config)
+
+        await asyncio.gather(ssh_task, tunnel_task, return_exceptions=True)
+
+    except asyncio.CancelledError:
+        logger.info("Tasks cancelled")
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        return 1
+    finally:
+        logger.info("Cleaning up...")
+        stop_event.set()
+
+        if http_proxy_proc:
+            http_proxy_proc.terminate()
+            try:
+                http_proxy_proc.wait(timeout=5)
+            except Exception:
+                http_proxy_proc.kill()
+
+        logger.info("Cleanup complete. Exiting.")
+
+    return 0
+
+
+def run() -> None:
+    """Entry point wrapper."""
+    try:
+        exit_code = asyncio.run(main())
+        sys.exit(exit_code)
+    except KeyboardInterrupt:
+        logger.info("Interrupted by user")
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    run()

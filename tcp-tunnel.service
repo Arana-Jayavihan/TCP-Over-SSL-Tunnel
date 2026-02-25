@@ -1,0 +1,48 @@
+[Unit]
+Description=TCP Over SSL Tunnel with SNI Injection
+Documentation=https://github.com/yourusername/TCP-Over-SSL-Tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tcp-tunnel
+Group=tcp-tunnel
+
+# Paths - adjust these to match your installation
+ExecStart=/usr/bin/python3 /opt/tcp-tunnel/main.py --config /etc/tcp-tunnel/settings.ini
+WorkingDirectory=/opt/tcp-tunnel
+
+# Environment
+Environment="TCP_TUNNEL_PASSWORD="
+# Alternatively, use an environment file:
+# EnvironmentFile=/etc/tcp-tunnel/env
+
+# Restart behavior
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=true
+
+# Allow network access
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tcp-tunnel
+
+[Install]
+WantedBy=multi-user.target
